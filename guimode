@@ -1,18 +1,14 @@
 local ESP = loadstring(game:HttpGet("https://raw.githubusercontent.com/VeneraScript/venera-esp/main/myEspScript.lua"))()
 ESP:Toggle(true)
 
-ESP.Players = false
-ESP.Boxes = false
+ESP.Players = false -- hanya NPC
+ESP.Boxes = false -- hapus box
 ESP.Names = true
 ESP.TeamColor = false
 ESP.FaceCamera = true
-ESP.Distance = false
+ESP.Distance = true
 ESP.UseDisplayNames = false
-ESP.ShowNPCs = false
-
-local Players = game:GetService("Players")
-local LocalPlayer = Players.LocalPlayer
-local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
+ESP.ShowNPCs = true -- aktif langsung tanpa toggle
 
 local targets = {
     ["unicorn"] = Color3.fromRGB(255, 182, 193),
@@ -46,57 +42,13 @@ function AddTargetESP(model)
     end
 end
 
+-- Scan awal
 for _, obj in ipairs(workspace:GetDescendants()) do
     AddTargetESP(obj)
 end
 
+-- Update otomatis kalau NPC baru spawn
 workspace.DescendantAdded:Connect(function(obj)
     task.wait(0.1)
     AddTargetESP(obj)
 end)
-
--- UI Basic Manual
-local gui = Instance.new("ScreenGui", PlayerGui)
-gui.Name = "ESP_UI"
-gui.ResetOnSpawn = false
-
-local bg = Instance.new("Frame", gui)
-bg.Size = UDim2.new(0, 200, 0, 300)
-bg.Position = UDim2.new(0, 20, 0, 20)
-bg.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
-bg.Active = true
-bg.Draggable = true
-
-local title = Instance.new("TextLabel", bg)
-title.Size = UDim2.new(1, 0, 0, 30)
-title.Text = "ESP Menu"
-title.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
-title.TextColor3 = Color3.new(1,1,1)
-title.Font = Enum.Font.SourceSansBold
-title.TextSize = 18
-
-local function createToggle(name, y, prop)
-    local btn = Instance.new("TextButton", bg)
-    btn.Size = UDim2.new(1, -20, 0, 30)
-    btn.Position = UDim2.new(0, 10, 0, y)
-    btn.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
-    btn.TextColor3 = Color3.new(1,1,1)
-    btn.Font = Enum.Font.SourceSansBold
-    btn.TextSize = 16
-
-    local state = ESP[prop]
-    btn.Text = name .. ": " .. (state and "ON" or "OFF")
-    
-    btn.MouseButton1Click:Connect(function()
-        state = not state
-        ESP[prop] = state
-        btn.Text = name .. ": " .. (state and "ON" or "OFF")
-    end)
-end
-
-createToggle("Players", 40, "Players")
-createToggle("Boxes", 80, "Boxes")
-createToggle("Names", 120, "Names")
-createToggle("TeamColor", 160, "TeamColor")
-createToggle("Distance", 200, "Distance")
-createToggle("NPCs", 240, "ShowNPCs")
