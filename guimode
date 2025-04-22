@@ -1,80 +1,126 @@
-local gui = Instance.new("ScreenGui", game.CoreGui)
-gui.Name = "ESP_MENU"
-gui.ResetOnSpawn = false
+local ESP = loadstring(game:HttpGet("https://raw.githubusercontent.com/VeneraScript/venera-esp/main/myEspScript.lua"))()
+ESP:Toggle(true)
 
-local titleBar = Instance.new("TextLabel", gui)
-titleBar.Text = "ESP Menu"
-titleBar.BackgroundColor3 = Color3.new(0.2, 0.2, 0.2)
-titleBar.Size = UDim2.new(0, 200, 0, 30)
-titleBar.Position = UDim2.new(0, 100, 0, 100)
-titleBar.TextColor3 = Color3.new(1, 1, 1)
-titleBar.Font = Enum.Font.SourceSans
-titleBar.TextSize = 20
-titleBar.BorderSizePixel = 0
+ESP.Players = false -- default off
+ESP.Boxes = false
+ESP.Names = true
+ESP.TeamColor = false
+ESP.FaceCamera = true
+ESP.Distance = true
+ESP.UseDisplayNames = false
+ESP.ShowNPCs = false -- custom toggle for NPCs
 
-local background = Instance.new("Frame", gui)
-background.BackgroundColor3 = Color3.new(0.1, 0.1, 0.1)
-background.Size = UDim2.new(0, 200, 0, 120)
-background.Position = titleBar.Position + UDim2.new(0, 0, 0, 30)
-background.BorderSizePixel = 0
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
 
-local toggle = Instance.new("TextButton", background)
-toggle.Text = "Toggle ESP"
-toggle.BackgroundColor3 = Color3.new(0.3, 0.3, 0.3)
-toggle.Size = UDim2.new(0, 180, 0, 40)
-toggle.Position = UDim2.new(0, 10, 0, 10)
-toggle.TextColor3 = Color3.new(1, 1, 1)
-toggle.Font = Enum.Font.SourceSans
-toggle.TextSize = 18
-toggle.BorderSizePixel = 0
+local targets = {
+    ["unicorn"] = Color3.fromRGB(255, 182, 193),
+    ["outlaw"] = Color3.fromRGB(255, 0, 0),
+    ["wolf"] = Color3.fromRGB(160, 160, 160),
+    ["werewolf"] = Color3.fromRGB(100, 100, 100),
+    ["vampire"] = Color3.fromRGB(128, 0, 128)
+}
 
-local status = Instance.new("TextLabel", background)
-status.Text = "ESP: Off"
-status.BackgroundTransparency = 1
-status.Size = UDim2.new(1, 0, 0, 30)
-status.Position = UDim2.new(0, 0, 0, 60)
-status.TextColor3 = Color3.new(1, 1, 1)
-status.Font = Enum.Font.SourceSans
-status.TextSize = 18
+local addedModels = {}
 
-local esp = loadstring(game:HttpGet("https://raw.githubusercontent.com/VeneraScript/venera-esp/refs/heads/main/myEspScript.lua"))() -- ganti link sesuai kebutuhan
-
-toggle.MouseButton1Click:Connect(function()
-    esp:Toggle(not esp.Enabled)
-    status.Text = "ESP: " .. (esp.Enabled and "On" or "Off")
-end)
-
--- === Drag Handler ===
-local dragging, dragInput, dragStart, startPos
-
-local function update(input)
-	local delta = input.Position - dragStart
-	gui.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X,
-		startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+function AddTargetESP(model)
+    if addedModels[model] then return end
+    if model:IsA("Model") and model:FindFirstChildWhichIsA("Humanoid") then
+        local nameLower = model.Name:lower()
+        for keyword, color in pairs(targets) do
+            if nameLower:find(keyword) then
+                local part = model:FindFirstChild("HumanoidRootPart") or model:FindFirstChildWhichIsA("BasePart")
+                if part then
+                    local espObj = ESP:Add(model, {
+                        Name = keyword:sub(1,1):upper() .. keyword:sub(2),
+                        PrimaryPart = part,
+                        Color = color,
+                        IsEnabled = "ShowNPCs"
+                    })
+                    addedModels[model] = espObj
+                end
+                break
+            end
+        end
+    end
 end
 
-titleBar.InputBegan:Connect(function(input)
-	if input.UserInputType == Enum.UserInputType.MouseButton1 then
-		dragging = true
-		dragStart = input.Position
-		startPos = gui.Position
+-- Initial scan
+for _, obj in ipairs(workspace:GetDescendants()) do
+    AddTargetESP(obj)
+end
 
-		input.Changed:Connect(function()
-			if input.UserInputState == Enum.UserInputState.End then
-				dragging = false
-			end
-		end)
-	end
+workspace.DescendantAdded:Connect(function(obj)
+    task.wait(0.1)
+    AddTargetESP(obj)
 end)
 
-titleBar.InputChanged:Connect(function(input)
-	if input.UserInputType == Enum.UserInputType.MouseMovement then
-		dragInput = input
-	end
+-- UI
+local gui = Instance.new("ScreenGui", PlayerGui)
+gui.Name = "ESP_UI"
+gui.ResetOnSpawn = false
+
+local titleBar = Instance.new("Frame", gui)
+titleBar.Size = UDim2.new(0, 240, 0, 30)
+titleBar.Position = UDim2.new(0, 20, 0, 20)
+titleBar.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+titleBar.Active = true
+titleBar.Draggable = true
+
+local titleText = Instance.new("TextLabel", titleBar)
+titleText.Size = UDim2.new(1, -60, 1, 0)
+titleText.Position = UDim2.new(0, 10, 0, 0)
+titleText.BackgroundTransparency = 1
+titleText.TextColor3 = Color3.new(1,1,1)
+titleText.TextXAlignment = Enum.TextXAlignment.Left
+titleText.Font = Enum.Font.SourceSansBold
+titleText.TextSize = 18
+titleText.Text = "ESP Menu"
+
+local toggleBtn = Instance.new("TextButton", titleBar)
+toggleBtn.Size = UDim2.new(0, 50, 0, 30)
+toggleBtn.Position = UDim2.new(1, -55, 0, 0)
+toggleBtn.Text = "Open"
+toggleBtn.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
+toggleBtn.TextColor3 = Color3.new(1,1,1)
+toggleBtn.Font = Enum.Font.SourceSansBold
+toggleBtn.TextSize = 16
+
+local mainFrame = Instance.new("Frame", gui)
+mainFrame.Size = UDim2.new(0, 240, 0, 120)
+mainFrame.Position = UDim2.new(0, 20, 0, 60)
+mainFrame.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+mainFrame.Active = true
+mainFrame.Visible = false
+
+toggleBtn.MouseButton1Click:Connect(function()
+    mainFrame.Visible = not mainFrame.Visible
+    toggleBtn.Text = mainFrame.Visible and "Close" or "Open"
 end)
 
-game:GetService("UserInputService").InputChanged:Connect(function(input)
-	if input == dragInput and dragging then
-		update(input)
-	end
+local function createToggle(name, posY, callback)
+    local btn = Instance.new("TextButton", mainFrame)
+    btn.Size = UDim2.new(1, -20, 0, 40)
+    btn.Position = UDim2.new(0, 10, 0, posY)
+    btn.BackgroundColor3 = Color3.fromRGB(55, 55, 55)
+    btn.TextColor3 = Color3.new(1,1,1)
+    btn.Font = Enum.Font.SourceSansBold
+    btn.TextSize = 16
+    btn.Text = name .. ": OFF"
+
+    local state = false
+    btn.MouseButton1Click:Connect(function()
+        state = not state
+        btn.Text = name .. ": " .. (state and "ON" or "OFF")
+        callback(state)
+    end)
+end
+
+createToggle("Players", 10, function(val)
+    ESP.Players = val
+end)
+
+createToggle("NPCs", 60, function(val)
+    ESP.ShowNPCs = val
 end)
