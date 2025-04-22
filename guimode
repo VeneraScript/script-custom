@@ -1,109 +1,102 @@
---// Load Venera ESP
-local ESP = loadstring(game:HttpGet("https://raw.githubusercontent.com/VeneraScript/venera-esp/refs/heads/main/myEspScript.lua"))()
+local ESP = loadstring(game:HttpGet("https://raw.githubusercontent.com/VeneraScript/venera-esp/main/myEspScript.lua"))()
+ESP:Toggle(true)
 
---// UI Library
-local OrionLib = loadstring(game:HttpGet("https://raw.githubusercontent.com/shlexware/Orion/main/source"))()
+ESP.Players = false
+ESP.Boxes = false
+ESP.Names = true
+ESP.TeamColor = false
+ESP.FaceCamera = true
+ESP.Distance = false
+ESP.UseDisplayNames = false
+ESP.ShowNPCs = false
 
---// Window Setup
-local Window = OrionLib:MakeWindow({
-	Name = "Custom ESP Menu",
-	HidePremium = false,
-	SaveConfig = true,
-	ConfigFolder = "ESPConfig"
-})
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
 
---// Tabs
-local Tab = Window:MakeTab({
-	Name = "ESP",
-	Icon = "rbxassetid://4483345998",
-	PremiumOnly = false
-})
+local targets = {
+    ["unicorn"] = Color3.fromRGB(255, 182, 193),
+    ["outlaw"] = Color3.fromRGB(255, 0, 0),
+    ["wolf"] = Color3.fromRGB(160, 160, 160),
+    ["werewolf"] = Color3.fromRGB(100, 100, 100),
+    ["vampire"] = Color3.fromRGB(128, 0, 128)
+}
 
---// Sections
-local Section = Tab:AddSection({Name = "Player ESP"})
+local addedModels = {}
 
---// Toggles
-Tab:AddToggle({
-	Name = "Enabled",
-	Default = false,
-	Callback = function(Value)
-		ESP:Toggle(Value)
-	end
-})
+function AddTargetESP(model)
+    if addedModels[model] then return end
+    if model:IsA("Model") and model:FindFirstChildWhichIsA("Humanoid") then
+        local nameLower = model.Name:lower()
+        for keyword, color in pairs(targets) do
+            if nameLower:find(keyword) then
+                local part = model:FindFirstChild("HumanoidRootPart") or model:FindFirstChildWhichIsA("BasePart")
+                if part then
+                    local espObj = ESP:Add(model, {
+                        Name = keyword:sub(1,1):upper() .. keyword:sub(2),
+                        PrimaryPart = part,
+                        Color = color,
+                        IsEnabled = "ShowNPCs"
+                    })
+                    addedModels[model] = espObj
+                end
+                break
+            end
+        end
+    end
+end
 
-Tab:AddToggle({
-	Name = "Boxes",
-	Default = true,
-	Callback = function(Value)
-		ESP.Boxes = Value
-	end
-})
+for _, obj in ipairs(workspace:GetDescendants()) do
+    AddTargetESP(obj)
+end
 
-Tab:AddToggle({
-	Name = "Names",
-	Default = true,
-	Callback = function(Value)
-		ESP.Names = Value
-	end
-})
+workspace.DescendantAdded:Connect(function(obj)
+    task.wait(0.1)
+    AddTargetESP(obj)
+end)
 
-Tab:AddToggle({
-	Name = "Team Color",
-	Default = true,
-	Callback = function(Value)
-		ESP.TeamColor = Value
-	end
-})
+-- UI Basic Manual
+local gui = Instance.new("ScreenGui", PlayerGui)
+gui.Name = "ESP_UI"
+gui.ResetOnSpawn = false
 
-Tab:AddToggle({
-	Name = "Show Team Mates",
-	Default = true,
-	Callback = function(Value)
-		ESP.TeamMates = Value
-	end
-})
+local bg = Instance.new("Frame", gui)
+bg.Size = UDim2.new(0, 200, 0, 300)
+bg.Position = UDim2.new(0, 20, 0, 20)
+bg.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
+bg.Active = true
+bg.Draggable = true
 
-Tab:AddToggle({
-	Name = "Show Players",
-	Default = true,
-	Callback = function(Value)
-		ESP.Players = Value
-	end
-})
+local title = Instance.new("TextLabel", bg)
+title.Size = UDim2.new(1, 0, 0, 30)
+title.Text = "ESP Menu"
+title.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+title.TextColor3 = Color3.new(1,1,1)
+title.Font = Enum.Font.SourceSansBold
+title.TextSize = 18
 
-Tab:AddToggle({
-	Name = "Tracers",
-	Default = false,
-	Callback = function(Value)
-		ESP.Tracers = Value
-	end
-})
+local function createToggle(name, y, prop)
+    local btn = Instance.new("TextButton", bg)
+    btn.Size = UDim2.new(1, -20, 0, 30)
+    btn.Position = UDim2.new(0, 10, 0, y)
+    btn.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
+    btn.TextColor3 = Color3.new(1,1,1)
+    btn.Font = Enum.Font.SourceSansBold
+    btn.TextSize = 16
 
---// Optional: NPC ESP (kalau lo pakai object listener di game)
-local npcTab = Window:MakeTab({
-	Name = "NPC ESP",
-	Icon = "rbxassetid://6031075938",
-	PremiumOnly = false
-})
+    local state = ESP[prop]
+    btn.Text = name .. ": " .. (state and "ON" or "OFF")
+    
+    btn.MouseButton1Click:Connect(function()
+        state = not state
+        ESP[prop] = state
+        btn.Text = name .. ": " .. (state and "ON" or "OFF")
+    end)
+end
 
-npcTab:AddButton({
-	Name = "Add Dummy ESP",
-	Callback = function()
-		ESP:AddObjectListener(workspace, {
-			Name = "Dummy",
-			Type = "Model",
-			PrimaryPart = "HumanoidRootPart",
-			Color = Color3.fromRGB(255, 255, 255),
-			CustomName = "NPC",
-			IsEnabled = "Enabled"
-		})
-	end
-})
-
---// Notification
-OrionLib:MakeNotification({
-	Name = "ESP Loaded",
-	Content = "UI & Venera ESP successfully loaded!",
-	Image = "rbxassetid://4483345998",
-	Time = 5
-})
+createToggle("Players", 40, "Players")
+createToggle("Boxes", 80, "Boxes")
+createToggle("Names", 120, "Names")
+createToggle("TeamColor", 160, "TeamColor")
+createToggle("Distance", 200, "Distance")
+createToggle("NPCs", 240, "ShowNPCs")
