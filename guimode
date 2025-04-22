@@ -1,126 +1,109 @@
-local ESP = loadstring(game:HttpGet("https://raw.githubusercontent.com/VeneraScript/venera-esp/main/myEspScript.lua"))()
-ESP:Toggle(true)
+--// Load Venera ESP
+local ESP = loadstring(game:HttpGet("https://raw.githubusercontent.com/VeneraScript/venera-esp/refs/heads/main/myEspScript.lua"))()
 
-ESP.Players = false -- default off
-ESP.Boxes = false
-ESP.Names = true
-ESP.TeamColor = false
-ESP.FaceCamera = true
-ESP.Distance = true
-ESP.UseDisplayNames = false
-ESP.ShowNPCs = false -- custom toggle for NPCs
+--// UI Library
+local OrionLib = loadstring(game:HttpGet("https://raw.githubusercontent.com/shlexware/Orion/main/source"))()
 
-local Players = game:GetService("Players")
-local LocalPlayer = Players.LocalPlayer
-local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
+--// Window Setup
+local Window = OrionLib:MakeWindow({
+	Name = "Custom ESP Menu",
+	HidePremium = false,
+	SaveConfig = true,
+	ConfigFolder = "ESPConfig"
+})
 
-local targets = {
-    ["unicorn"] = Color3.fromRGB(255, 182, 193),
-    ["outlaw"] = Color3.fromRGB(255, 0, 0),
-    ["wolf"] = Color3.fromRGB(160, 160, 160),
-    ["werewolf"] = Color3.fromRGB(100, 100, 100),
-    ["vampire"] = Color3.fromRGB(128, 0, 128)
-}
+--// Tabs
+local Tab = Window:MakeTab({
+	Name = "ESP",
+	Icon = "rbxassetid://4483345998",
+	PremiumOnly = false
+})
 
-local addedModels = {}
+--// Sections
+local Section = Tab:AddSection({Name = "Player ESP"})
 
-function AddTargetESP(model)
-    if addedModels[model] then return end
-    if model:IsA("Model") and model:FindFirstChildWhichIsA("Humanoid") then
-        local nameLower = model.Name:lower()
-        for keyword, color in pairs(targets) do
-            if nameLower:find(keyword) then
-                local part = model:FindFirstChild("HumanoidRootPart") or model:FindFirstChildWhichIsA("BasePart")
-                if part then
-                    local espObj = ESP:Add(model, {
-                        Name = keyword:sub(1,1):upper() .. keyword:sub(2),
-                        PrimaryPart = part,
-                        Color = color,
-                        IsEnabled = "ShowNPCs"
-                    })
-                    addedModels[model] = espObj
-                end
-                break
-            end
-        end
-    end
-end
+--// Toggles
+Tab:AddToggle({
+	Name = "Enabled",
+	Default = false,
+	Callback = function(Value)
+		ESP:Toggle(Value)
+	end
+})
 
--- Initial scan
-for _, obj in ipairs(workspace:GetDescendants()) do
-    AddTargetESP(obj)
-end
+Tab:AddToggle({
+	Name = "Boxes",
+	Default = true,
+	Callback = function(Value)
+		ESP.Boxes = Value
+	end
+})
 
-workspace.DescendantAdded:Connect(function(obj)
-    task.wait(0.1)
-    AddTargetESP(obj)
-end)
+Tab:AddToggle({
+	Name = "Names",
+	Default = true,
+	Callback = function(Value)
+		ESP.Names = Value
+	end
+})
 
--- UI
-local gui = Instance.new("ScreenGui", PlayerGui)
-gui.Name = "ESP_UI"
-gui.ResetOnSpawn = false
+Tab:AddToggle({
+	Name = "Team Color",
+	Default = true,
+	Callback = function(Value)
+		ESP.TeamColor = Value
+	end
+})
 
-local titleBar = Instance.new("Frame", gui)
-titleBar.Size = UDim2.new(0, 240, 0, 30)
-titleBar.Position = UDim2.new(0, 20, 0, 20)
-titleBar.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
-titleBar.Active = true
-titleBar.Draggable = true
+Tab:AddToggle({
+	Name = "Show Team Mates",
+	Default = true,
+	Callback = function(Value)
+		ESP.TeamMates = Value
+	end
+})
 
-local titleText = Instance.new("TextLabel", titleBar)
-titleText.Size = UDim2.new(1, -60, 1, 0)
-titleText.Position = UDim2.new(0, 10, 0, 0)
-titleText.BackgroundTransparency = 1
-titleText.TextColor3 = Color3.new(1,1,1)
-titleText.TextXAlignment = Enum.TextXAlignment.Left
-titleText.Font = Enum.Font.SourceSansBold
-titleText.TextSize = 18
-titleText.Text = "ESP Menu"
+Tab:AddToggle({
+	Name = "Show Players",
+	Default = true,
+	Callback = function(Value)
+		ESP.Players = Value
+	end
+})
 
-local toggleBtn = Instance.new("TextButton", titleBar)
-toggleBtn.Size = UDim2.new(0, 50, 0, 30)
-toggleBtn.Position = UDim2.new(1, -55, 0, 0)
-toggleBtn.Text = "Open"
-toggleBtn.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
-toggleBtn.TextColor3 = Color3.new(1,1,1)
-toggleBtn.Font = Enum.Font.SourceSansBold
-toggleBtn.TextSize = 16
+Tab:AddToggle({
+	Name = "Tracers",
+	Default = false,
+	Callback = function(Value)
+		ESP.Tracers = Value
+	end
+})
 
-local mainFrame = Instance.new("Frame", gui)
-mainFrame.Size = UDim2.new(0, 240, 0, 120)
-mainFrame.Position = UDim2.new(0, 20, 0, 60)
-mainFrame.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
-mainFrame.Active = true
-mainFrame.Visible = false
+--// Optional: NPC ESP (kalau lo pakai object listener di game)
+local npcTab = Window:MakeTab({
+	Name = "NPC ESP",
+	Icon = "rbxassetid://6031075938",
+	PremiumOnly = false
+})
 
-toggleBtn.MouseButton1Click:Connect(function()
-    mainFrame.Visible = not mainFrame.Visible
-    toggleBtn.Text = mainFrame.Visible and "Close" or "Open"
-end)
+npcTab:AddButton({
+	Name = "Add Dummy ESP",
+	Callback = function()
+		ESP:AddObjectListener(workspace, {
+			Name = "Dummy",
+			Type = "Model",
+			PrimaryPart = "HumanoidRootPart",
+			Color = Color3.fromRGB(255, 255, 255),
+			CustomName = "NPC",
+			IsEnabled = "Enabled"
+		})
+	end
+})
 
-local function createToggle(name, posY, callback)
-    local btn = Instance.new("TextButton", mainFrame)
-    btn.Size = UDim2.new(1, -20, 0, 40)
-    btn.Position = UDim2.new(0, 10, 0, posY)
-    btn.BackgroundColor3 = Color3.fromRGB(55, 55, 55)
-    btn.TextColor3 = Color3.new(1,1,1)
-    btn.Font = Enum.Font.SourceSansBold
-    btn.TextSize = 16
-    btn.Text = name .. ": OFF"
-
-    local state = false
-    btn.MouseButton1Click:Connect(function()
-        state = not state
-        btn.Text = name .. ": " .. (state and "ON" or "OFF")
-        callback(state)
-    end)
-end
-
-createToggle("Players", 10, function(val)
-    ESP.Players = val
-end)
-
-createToggle("NPCs", 60, function(val)
-    ESP.ShowNPCs = val
-end)
+--// Notification
+OrionLib:MakeNotification({
+	Name = "ESP Loaded",
+	Content = "UI & Venera ESP successfully loaded!",
+	Image = "rbxassetid://4483345998",
+	Time = 5
+})
