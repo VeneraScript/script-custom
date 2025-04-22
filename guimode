@@ -1,54 +1,109 @@
+--// Load Venera ESP
 local ESP = loadstring(game:HttpGet("https://raw.githubusercontent.com/VeneraScript/venera-esp/main/myEspScript.lua"))()
-ESP:Toggle(true)
 
-ESP.Players = false -- hanya NPC
-ESP.Boxes = false -- hapus box
-ESP.Names = true
-ESP.TeamColor = false
-ESP.FaceCamera = true
-ESP.Distance = true
-ESP.UseDisplayNames = false
-ESP.ShowNPCs = true -- aktif langsung tanpa toggle
+--// UI Library
+local OrionLib = loadstring(game:HttpGet("https://raw.githubusercontent.com/shlexware/Orion/main/source"))()
 
-local targets = {
-    ["unicorn"] = Color3.fromRGB(255, 182, 193),
-    ["outlaw"] = Color3.fromRGB(255, 0, 0),
-    ["wolf"] = Color3.fromRGB(160, 160, 160),
-    ["werewolf"] = Color3.fromRGB(100, 100, 100),
-    ["vampire"] = Color3.fromRGB(128, 0, 128)
-}
+--// Window Setup
+local Window = OrionLib:MakeWindow({
+	Name = "Custom ESP Menu",
+	HidePremium = false,
+	SaveConfig = true,
+	ConfigFolder = "ESPConfig"
+})
 
-local addedModels = {}
+--// Tabs
+local Tab = Window:MakeTab({
+	Name = "ESP",
+	Icon = "rbxassetid://4483345998",
+	PremiumOnly = false
+})
 
-function AddTargetESP(model)
-    if addedModels[model] then return end
-    if model:IsA("Model") and model:FindFirstChildWhichIsA("Humanoid") then
-        local nameLower = model.Name:lower()
-        for keyword, color in pairs(targets) do
-            if nameLower:find(keyword) then
-                local part = model:FindFirstChild("HumanoidRootPart") or model:FindFirstChildWhichIsA("BasePart")
-                if part then
-                    local espObj = ESP:Add(model, {
-                        Name = keyword:sub(1,1):upper() .. keyword:sub(2),
-                        PrimaryPart = part,
-                        Color = color,
-                        IsEnabled = "ShowNPCs"
-                    })
-                    addedModels[model] = espObj
-                end
-                break
-            end
-        end
-    end
-end
+--// Sections
+local Section = Tab:AddSection({Name = "Player ESP"})
 
--- Scan awal
-for _, obj in ipairs(workspace:GetDescendants()) do
-    AddTargetESP(obj)
-end
+--// Toggles
+Tab:AddToggle({
+	Name = "Enabled",
+	Default = false,
+	Callback = function(Value)
+		ESP:Toggle(Value)
+	end
+})
 
--- Update otomatis kalau NPC baru spawn
-workspace.DescendantAdded:Connect(function(obj)
-    task.wait(0.1)
-    AddTargetESP(obj)
-end)
+Tab:AddToggle({
+	Name = "Boxes",
+	Default = true,
+	Callback = function(Value)
+		ESP.Boxes = Value
+	end
+})
+
+Tab:AddToggle({
+	Name = "Names",
+	Default = true,
+	Callback = function(Value)
+		ESP.Names = Value
+	end
+})
+
+Tab:AddToggle({
+	Name = "Team Color",
+	Default = true,
+	Callback = function(Value)
+		ESP.TeamColor = Value
+	end
+})
+
+Tab:AddToggle({
+	Name = "Show Team Mates",
+	Default = true,
+	Callback = function(Value)
+		ESP.TeamMates = Value
+	end
+})
+
+Tab:AddToggle({
+	Name = "Show Players",
+	Default = true,
+	Callback = function(Value)
+		ESP.Players = Value
+	end
+})
+
+Tab:AddToggle({
+	Name = "Tracers",
+	Default = false,
+	Callback = function(Value)
+		ESP.Tracers = Value
+	end
+})
+
+--// Optional: NPC ESP (kalau lo pakai object listener di game)
+local npcTab = Window:MakeTab({
+	Name = "NPC ESP",
+	Icon = "rbxassetid://6031075938",
+	PremiumOnly = false
+})
+
+npcTab:AddButton({
+	Name = "Add Dummy ESP",
+	Callback = function()
+		ESP:AddObjectListener(workspace, {
+			Name = "Dummy",
+			Type = "Model",
+			PrimaryPart = "HumanoidRootPart",
+			Color = Color3.fromRGB(255, 255, 255),
+			CustomName = "NPC",
+			IsEnabled = "Enabled"
+		})
+	end
+})
+
+--// Notification
+OrionLib:MakeNotification({
+	Name = "ESP Loaded",
+	Content = "UI & Venera ESP successfully loaded!",
+	Image = "rbxassetid://4483345998",
+	Time = 5
+})
