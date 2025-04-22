@@ -1,109 +1,80 @@
---// Load Venera ESP
-local ESP = loadstring(game:HttpGet("https://raw.githubusercontent.com/VeneraScript/venera-esp/main/myEspScript.lua"))()
+local gui = Instance.new("ScreenGui", game.CoreGui)
+gui.Name = "ESP_MENU"
+gui.ResetOnSpawn = false
 
---// UI Library
-local OrionLib = loadstring(game:HttpGet("https://raw.githubusercontent.com/shlexware/Orion/main/source"))()
+local titleBar = Instance.new("TextLabel", gui)
+titleBar.Text = "ESP Menu"
+titleBar.BackgroundColor3 = Color3.new(0.2, 0.2, 0.2)
+titleBar.Size = UDim2.new(0, 200, 0, 30)
+titleBar.Position = UDim2.new(0, 100, 0, 100)
+titleBar.TextColor3 = Color3.new(1, 1, 1)
+titleBar.Font = Enum.Font.SourceSans
+titleBar.TextSize = 20
+titleBar.BorderSizePixel = 0
 
---// Window Setup
-local Window = OrionLib:MakeWindow({
-	Name = "Custom ESP Menu",
-	HidePremium = false,
-	SaveConfig = true,
-	ConfigFolder = "ESPConfig"
-})
+local background = Instance.new("Frame", gui)
+background.BackgroundColor3 = Color3.new(0.1, 0.1, 0.1)
+background.Size = UDim2.new(0, 200, 0, 120)
+background.Position = titleBar.Position + UDim2.new(0, 0, 0, 30)
+background.BorderSizePixel = 0
 
---// Tabs
-local Tab = Window:MakeTab({
-	Name = "ESP",
-	Icon = "rbxassetid://4483345998",
-	PremiumOnly = false
-})
+local toggle = Instance.new("TextButton", background)
+toggle.Text = "Toggle ESP"
+toggle.BackgroundColor3 = Color3.new(0.3, 0.3, 0.3)
+toggle.Size = UDim2.new(0, 180, 0, 40)
+toggle.Position = UDim2.new(0, 10, 0, 10)
+toggle.TextColor3 = Color3.new(1, 1, 1)
+toggle.Font = Enum.Font.SourceSans
+toggle.TextSize = 18
+toggle.BorderSizePixel = 0
 
---// Sections
-local Section = Tab:AddSection({Name = "Player ESP"})
+local status = Instance.new("TextLabel", background)
+status.Text = "ESP: Off"
+status.BackgroundTransparency = 1
+status.Size = UDim2.new(1, 0, 0, 30)
+status.Position = UDim2.new(0, 0, 0, 60)
+status.TextColor3 = Color3.new(1, 1, 1)
+status.Font = Enum.Font.SourceSans
+status.TextSize = 18
 
---// Toggles
-Tab:AddToggle({
-	Name = "Enabled",
-	Default = false,
-	Callback = function(Value)
-		ESP:Toggle(Value)
+local esp = loadstring(game:HttpGet("https://raw.githubusercontent.com/VeneraScript/venera-esp/refs/heads/main/myEspScript.lua"))() -- ganti link sesuai kebutuhan
+
+toggle.MouseButton1Click:Connect(function()
+    esp:Toggle(not esp.Enabled)
+    status.Text = "ESP: " .. (esp.Enabled and "On" or "Off")
+end)
+
+-- === Drag Handler ===
+local dragging, dragInput, dragStart, startPos
+
+local function update(input)
+	local delta = input.Position - dragStart
+	gui.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X,
+		startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+end
+
+titleBar.InputBegan:Connect(function(input)
+	if input.UserInputType == Enum.UserInputType.MouseButton1 then
+		dragging = true
+		dragStart = input.Position
+		startPos = gui.Position
+
+		input.Changed:Connect(function()
+			if input.UserInputState == Enum.UserInputState.End then
+				dragging = false
+			end
+		end)
 	end
-})
+end)
 
-Tab:AddToggle({
-	Name = "Boxes",
-	Default = true,
-	Callback = function(Value)
-		ESP.Boxes = Value
+titleBar.InputChanged:Connect(function(input)
+	if input.UserInputType == Enum.UserInputType.MouseMovement then
+		dragInput = input
 	end
-})
+end)
 
-Tab:AddToggle({
-	Name = "Names",
-	Default = true,
-	Callback = function(Value)
-		ESP.Names = Value
+game:GetService("UserInputService").InputChanged:Connect(function(input)
+	if input == dragInput and dragging then
+		update(input)
 	end
-})
-
-Tab:AddToggle({
-	Name = "Team Color",
-	Default = true,
-	Callback = function(Value)
-		ESP.TeamColor = Value
-	end
-})
-
-Tab:AddToggle({
-	Name = "Show Team Mates",
-	Default = true,
-	Callback = function(Value)
-		ESP.TeamMates = Value
-	end
-})
-
-Tab:AddToggle({
-	Name = "Show Players",
-	Default = true,
-	Callback = function(Value)
-		ESP.Players = Value
-	end
-})
-
-Tab:AddToggle({
-	Name = "Tracers",
-	Default = false,
-	Callback = function(Value)
-		ESP.Tracers = Value
-	end
-})
-
---// Optional: NPC ESP (kalau lo pakai object listener di game)
-local npcTab = Window:MakeTab({
-	Name = "NPC ESP",
-	Icon = "rbxassetid://6031075938",
-	PremiumOnly = false
-})
-
-npcTab:AddButton({
-	Name = "Add Dummy ESP",
-	Callback = function()
-		ESP:AddObjectListener(workspace, {
-			Name = "Dummy",
-			Type = "Model",
-			PrimaryPart = "HumanoidRootPart",
-			Color = Color3.fromRGB(255, 255, 255),
-			CustomName = "NPC",
-			IsEnabled = "Enabled"
-		})
-	end
-})
-
---// Notification
-OrionLib:MakeNotification({
-	Name = "ESP Loaded",
-	Content = "UI & Venera ESP successfully loaded!",
-	Image = "rbxassetid://4483345998",
-	Time = 5
-})
+end)
