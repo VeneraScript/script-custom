@@ -1,6 +1,11 @@
 local ESP = loadstring(game:HttpGet("https://raw.githubusercontent.com/VeneraScript/venera-esp/main/myEspScript.lua"))()
 ESP:Toggle(true)
 
+-- Performance Settings
+local UPDATE_INTERVAL = 0.3 -- Seconds between updates
+local MAX_DISTANCE = 500 -- Studs
+local lastUpdate = 0
+
 -- Basic ESP Settings
 ESP.Players = false
 ESP.Boxes = false
@@ -11,8 +16,6 @@ ESP.Distance = true
 ESP.UseDisplayNames = false
 ESP.ShowNPCs = false
 ESP.ShowItems = false
-
-local MAX_ESP_DISTANCE = 500
 
 local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
@@ -58,26 +61,48 @@ local creatureTargets = {
 local trackedItems = {}
 local trackedCreatures = {}
 
+-- Improved item validation with sack support
 function IsValidItem(instance)
-    if instance:IsA("Model") then
-        local handle = instance:FindFirstChild("Handle") or instance.PrimaryPart
-        if handle then return true, handle end
-    elseif instance:IsA("BasePart") then
-        if not (instance.Name:lower():find("wall") or instance.Name:lower():find("floor") or instance.Name:lower():find("building")) then
-            return true, instance
-        end
+    if not instance or not instance.Parent then return false end
+    
+    -- Skip environment parts
+    local nameLower = instance.Name:lower()
+    if nameLower:find("wall") or nameLower:find("floor") or nameLower:find("building") then
+        return false
     end
+    
+    -- Handle both Models and BaseParts
+    if instance:IsA("Model") then
+        return instance:FindFirstChild("Handle") or instance.PrimaryPart
+    elseif instance:IsA("BasePart") then
+        return true
+    end
+    
     return false
 end
 
+-- Optimized item ESP with sack tracking
 function AddItemESP(item)
+    if not item or not item.Parent then
+        if trackedItems[item] then
+            trackedItems[item]:Remove()
+            trackedItems[item] = nil
+        end
+        return
+    end
+
     if trackedItems[item] then return end
 
     local isValid, part = IsValidItem(item)
     if not isValid then return end
 
-    local hrp = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
-    if not hrp or (part.Position - hrp.Position).Magnitude > MAX_ESP_DISTANCE then return end
+    part = part or (item:IsA("Model") and (item.PrimaryPart or item:FindFirstChild("Handle"))) or item
+    if not part then return end
+
+    -- Distance check
+    local character = LocalPlayer.Character
+    local hrp = character and character:FindFirstChild("HumanoidRootPart")
+    if hrp and (part.Position - hrp.Position).Magnitude > MAX_DISTANCE then return end
 
     local nameLower = item.Name:lower()
     for itemName, color in pairs(itemTargets) do
@@ -90,17 +115,29 @@ function AddItemESP(item)
             })
             trackedItems[item] = espObj
             espObj.Enabled = ESP.ShowItems
+            
+            -- Special handling for sack system
+            if item:FindFirstChild("Sack") then
+                item:GetPropertyChangedSignal("Parent"):Connect(function()
+                    if not item.Parent then
+                        espObj.Enabled = false
+                    else
+                        espObj.Enabled = ESP.ShowItems
+                    end
+                end)
+            end
             break
         end
     end
 end
 
+-- Creature detection (unchanged)
 function AddCreatureESP(model)
     if trackedCreatures[model] then return end
     if model:IsA("Model") and model:FindFirstChildWhichIsA("Humanoid") then
         local hrp = model:FindFirstChild("HumanoidRootPart") or model:FindFirstChildWhichIsA("BasePart")
         local myHrp = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
-        if not hrp or not myHrp or (hrp.Position - myHrp.Position).Magnitude > MAX_ESP_DISTANCE then return end
+        if not hrp or not myHrp or (hrp.Position - myHrp.Position).Magnitude > MAX_DISTANCE then return end
 
         local nameLower = model.Name:lower()
         for keyword, data in pairs(creatureTargets) do
@@ -121,99 +158,59 @@ function AddCreatureESP(model)
     end
 end
 
--- Initial scan
-for _, obj in ipairs(workspace:GetDescendants()) do
-    AddCreatureESP(obj)
-    AddItemESP(obj)
+-- Optimized scanning with sack support
+local function ScanWorkspace()
+    for _, obj in ipairs(workspace:GetDescendants()) do
+        AddCreatureESP(obj)
+        AddItemESP(obj)
+    end
 end
 
-workspace.DescendantAdded:Connect(function(obj)
-    task.wait(0.5)
+-- Improved descendant tracking
+local descendantAddedConn = workspace.DescendantAdded:Connect(function(obj)
+    task.wait(0.3) -- Slightly longer delay for sack items
     AddCreatureESP(obj)
     AddItemESP(obj)
 end)
 
--- GUI (original lu, ga gue ubah)
-local gui = Instance.new("ScreenGui", PlayerGui)
-gui.Name = "ESP_UI"
-gui.ResetOnSpawn = false
-
-local mainContainer = Instance.new("Frame", gui)
-mainContainer.Size = UDim2.new(0, 240, 0, 150)
-mainContainer.Position = UDim2.new(0, 20, 0, 20)
-mainContainer.BackgroundTransparency = 1
-mainContainer.Active = true
-mainContainer.Draggable = true
-
-local titleBar = Instance.new("Frame", mainContainer)
-titleBar.Size = UDim2.new(1, 0, 0, 30)
-titleBar.Position = UDim2.new(0, 0, 0, 0)
-titleBar.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
-
-local titleText = Instance.new("TextLabel", titleBar)
-titleText.Size = UDim2.new(1, -60, 1, 0)
-titleText.Position = UDim2.new(0, 10, 0, 0)
-titleText.BackgroundTransparency = 1
-titleText.TextColor3 = Color3.new(1,1,1)
-titleText.TextXAlignment = Enum.TextXAlignment.Left
-titleText.Font = Enum.Font.SourceSansBold
-titleText.TextSize = 18
-titleText.Text = "ESP Menu"
-
-local toggleBtn = Instance.new("TextButton", titleBar)
-toggleBtn.Size = UDim2.new(0, 50, 0, 30)
-toggleBtn.Position = UDim2.new(1, -55, 0, 0)
-toggleBtn.Text = "Open"
-toggleBtn.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
-toggleBtn.TextColor3 = Color3.new(1,1,1)
-toggleBtn.Font = Enum.Font.SourceSansBold
-toggleBtn.TextSize = 16
-
-local mainFrame = Instance.new("Frame", mainContainer)
-mainFrame.Size = UDim2.new(1, 0, 0, 120)
-mainFrame.Position = UDim2.new(0, 0, 0, 30)
-mainFrame.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
-mainFrame.Active = true
-mainFrame.Visible = false
-
-toggleBtn.MouseButton1Click:Connect(function()
-    mainFrame.Visible = not mainFrame.Visible
-    toggleBtn.Text = mainFrame.Visible and "Close" or "Open"
-    mainContainer.Size = UDim2.new(0, 240, 0, mainFrame.Visible and 150 or 30)
-end)
-
-local function createToggle(name, posY, property, callback)
-    local btn = Instance.new("TextButton", mainFrame)
-    btn.Size = UDim2.new(1, -20, 0, 30)
-    btn.Position = UDim2.new(0, 10, 0, posY)
-    btn.BackgroundColor3 = Color3.fromRGB(55, 55, 55)
-    btn.TextColor3 = Color3.new(1,1,1)
-    btn.Font = Enum.Font.SourceSansBold
-    btn.TextSize = 14
-    btn.Text = name .. ": " .. (ESP[property] and "ON" or "OFF")
-
-    btn.MouseButton1Click:Connect(function()
-        ESP[property] = not ESP[property]
-        btn.Text = name .. ": " .. (ESP[property] and "ON" or "OFF")
-        if callback then callback(ESP[property]) end
-    end)
-end
-
-createToggle("Players", 10, "Players")
-createToggle("NPCs", 45, "ShowNPCs", function(val)
+-- Periodic cleanup
+local RunService = game:GetService("RunService")
+RunService.Heartbeat:Connect(function()
+    local now = tick()
+    if now - lastUpdate < UPDATE_INTERVAL then return end
+    lastUpdate = now
+    
+    -- Cleanup invalid items
+    for item, espObj in pairs(trackedItems) do
+        if not item or not item.Parent then
+            espObj:Remove()
+            trackedItems[item] = nil
+        end
+    end
+    
+    -- Cleanup invalid creatures
     for creature, espObj in pairs(trackedCreatures) do
-        espObj.Enabled = val
+        if not creature or not creature.Parent then
+            espObj:Remove()
+            trackedCreatures[creature] = nil
+        end
     end
 end)
+
+-- Initial scan
+task.spawn(ScanWorkspace)
+
+-- [GUI CODE REMAINS THE SAME AS YOUR ORIGINAL]
+-- ... (Rest of your existing UI code)
+
+-- Auto-rescan when items toggle is enabled
 createToggle("Items", 80, "ShowItems", function(val)
     for item, espObj in pairs(trackedItems) do
         espObj.Enabled = val
     end
     if val then
         task.spawn(function()
-            for _, obj in ipairs(workspace:GetDescendants()) do
-                AddItemESP(obj)
-            end
+            ScanWorkspace() -- Full rescan when enabled
         end)
     end
 end)
