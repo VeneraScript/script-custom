@@ -61,12 +61,19 @@ local gui = Instance.new("ScreenGui", PlayerGui)
 gui.Name = "ESP_UI"
 gui.ResetOnSpawn = false
 
-local titleBar = Instance.new("Frame", gui)
-titleBar.Size = UDim2.new(0, 240, 0, 30)
-titleBar.Position = UDim2.new(0, 20, 0, 20)
+-- Main container that will be dragged
+local mainContainer = Instance.new("Frame", gui)
+mainContainer.Size = UDim2.new(0, 240, 0, 150) -- Increased height to fit all elements
+mainContainer.Position = UDim2.new(0, 20, 0, 20)
+mainContainer.BackgroundTransparency = 1
+mainContainer.Active = true
+mainContainer.Draggable = true
+
+-- Title bar (now just for visuals, dragging is handled by mainContainer)
+local titleBar = Instance.new("Frame", mainContainer)
+titleBar.Size = UDim2.new(1, 0, 0, 30)
+titleBar.Position = UDim2.new(0, 0, 0, 0)
 titleBar.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
-titleBar.Active = true
-titleBar.Draggable = true
 
 local titleText = Instance.new("TextLabel", titleBar)
 titleText.Size = UDim2.new(1, -60, 1, 0)
@@ -87,9 +94,9 @@ toggleBtn.TextColor3 = Color3.new(1,1,1)
 toggleBtn.Font = Enum.Font.SourceSansBold
 toggleBtn.TextSize = 16
 
-local mainFrame = Instance.new("Frame", gui)
-mainFrame.Size = UDim2.new(0, 240, 0, 120)
-mainFrame.Position = UDim2.new(0, 20, 0, 60)
+local mainFrame = Instance.new("Frame", mainContainer)
+mainFrame.Size = UDim2.new(1, 0, 0, 120)
+mainFrame.Position = UDim2.new(0, 0, 0, 30) -- Positioned below title bar
 mainFrame.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
 mainFrame.Active = true
 mainFrame.Visible = false
@@ -97,6 +104,8 @@ mainFrame.Visible = false
 toggleBtn.MouseButton1Click:Connect(function()
     mainFrame.Visible = not mainFrame.Visible
     toggleBtn.Text = mainFrame.Visible and "Close" or "Open"
+    -- Adjust container height based on visibility
+    mainContainer.Size = UDim2.new(0, 240, 0, mainFrame.Visible and 150 or 30)
 end)
 
 local function createToggle(name, posY, callback)
