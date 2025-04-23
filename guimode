@@ -16,7 +16,7 @@ local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
 local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
 
--- Simplified target configuration
+-- Item configuration
 local itemTargets = {
     -- Fuel
     ["chair"] = Color3.fromRGB(139, 69, 19),
@@ -53,6 +53,7 @@ local itemTargets = {
     ["strange mask"] = Color3.fromRGB(75, 0, 130)
 }
 
+-- Creature configuration
 local creatureTargets = {
     ["unicorn"] = Color3.fromRGB(255, 182, 193),
     ["outlaw"] = Color3.fromRGB(255, 0, 0),
@@ -67,26 +68,39 @@ local trackedItems = {}
 local trackedCreatures = {}
 
 -- Improved item detection
+function IsValidItem(instance)
+    if instance:IsA("Model") then
+        local handle = instance:FindFirstChild("Handle") or instance.PrimaryPart
+        if handle then return true, handle end
+    elseif instance:IsA("BasePart") then
+        if not (instance.Name:lower():find("wall") or 
+               instance.Name:lower():find("floor") or 
+               instance.Name:lower():find("building")) then
+            return true, instance
+        end
+    end
+    return false
+end
+
 function AddItemESP(item)
-    if trackedItems[item] or not ESP.ShowItems then return end
-    if item:IsA("BasePart") or item:IsA("Model") then
-        local nameLower = item.Name:lower()
-        
-        for itemName, color in pairs(itemTargets) do
-            if nameLower:find(itemName) then
-                local primaryPart = item:IsA("Model") and (item.PrimaryPart or item:FindFirstChild("Handle") or item:FindFirstChildWhichIsA("BasePart")) or item
-                
-                if primaryPart then
-                    local espObj = ESP:Add(item, {
-                        Name = itemName:gsub("^%l", string.upper),
-                        PrimaryPart = primaryPart,
-                        Color = color,
-                        IsEnabled = "ShowItems"
-                    })
-                    trackedItems[item] = espObj
-                    break
-                end
-            end
+    if trackedItems[item] then return end
+    
+    local isValid, part = IsValidItem(item)
+    if not isValid then return end
+    
+    local nameLower = item.Name:lower()
+    
+    for itemName, color in pairs(itemTargets) do
+        if nameLower:find(itemName:lower()) then
+            local espObj = ESP:Add(item, {
+                Name = itemName:gsub("^%l", string.upper),
+                PrimaryPart = part,
+                Color = color,
+                IsEnabled = "ShowItems"
+            })
+            trackedItems[item] = espObj
+            espObj.Enabled = ESP.ShowItems
+            break
         end
     end
 end
@@ -118,24 +132,19 @@ function AddCreatureESP(model)
     end
 end
 
--- Cleaner scanning system
-function ScanWorkspace()
-    for _, obj in ipairs(workspace:GetDescendants()) do
-        AddCreatureESP(obj)
-        AddItemESP(obj)
-    end
+-- Initial scan
+for _, obj in ipairs(workspace:GetDescendants()) do
+    AddCreatureESP(obj)
+    AddItemESP(obj)
 end
 
 workspace.DescendantAdded:Connect(function(obj)
-    task.wait(0.1) -- Small delay to allow object initialization
+    task.wait(0.5) -- Longer delay for initialization
     AddCreatureESP(obj)
     AddItemESP(obj)
 end)
 
--- Initialize
-ScanWorkspace()
-
--- Simplified UI
+-- UI
 local gui = Instance.new("ScreenGui", PlayerGui)
 gui.Name = "ESP_UI"
 gui.ResetOnSpawn = false
@@ -184,7 +193,7 @@ toggleBtn.MouseButton1Click:Connect(function()
     mainContainer.Size = UDim2.new(0, 240, 0, mainFrame.Visible and 150 or 30)
 end)
 
-local function createToggle(name, posY, property, default)
+local function createToggle(name, posY, property, callback)
     local btn = Instance.new("TextButton", mainFrame)
     btn.Size = UDim2.new(1, -20, 0, 30)
     btn.Position = UDim2.new(0, 10, 0, posY)
@@ -197,21 +206,26 @@ local function createToggle(name, posY, property, default)
     btn.MouseButton1Click:Connect(function()
         ESP[property] = not ESP[property]
         btn.Text = name .. ": " .. (ESP[property] and "ON" or "OFF")
-        
-        -- Force refresh ESP visibility
-        if property == "ShowItems" then
-            for item, espObj in pairs(trackedItems) do
-                espObj.Enabled = ESP.ShowItems
-            end
-        elseif property == "ShowNPCs" then
-            for creature, espObj in pairs(trackedCreatures) do
-                espObj.Enabled = ESP.ShowNPCs
-            end
-        end
+        if callback then callback(ESP[property]) end
     end)
 end
 
--- Create toggles
-createToggle("Players", 10, "Players", false)
-createToggle("NPCs", 45, "ShowNPCs", false)
-createToggle("Items", 80, "ShowItems", false)
+createToggle("Players", 10, "Players")
+createToggle("NPCs", 45, "ShowNPCs", function(val)
+    for creature, espObj in pairs(trackedCreatures) do
+        espObj.Enabled = val
+    end
+end)
+
+createToggle("Items", 80, "ShowItems", function(val)
+    for item, espObj in pairs(trackedItems) do
+        espObj.Enabled = val
+    end
+    if val then
+        task.spawn(function()
+            for _, obj in ipairs(workspace:GetDescendants()) do
+                AddItemESP(obj)
+            end
+        end)
+    end
+end)
