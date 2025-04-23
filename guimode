@@ -1,38 +1,81 @@
 local ESP = loadstring(game:HttpGet("https://raw.githubusercontent.com/VeneraScript/venera-esp/main/myEspScript.lua"))()
 ESP:Toggle(true)
 
-ESP.Players = false -- default off
+-- Player/NPC ESP Settings
+ESP.Players = false
 ESP.Boxes = false
 ESP.Names = true
 ESP.TeamColor = false
 ESP.FaceCamera = true
 ESP.Distance = true
 ESP.UseDisplayNames = false
-ESP.ShowNPCs = false -- custom toggle for NPCs
+ESP.ShowNPCs = false
+
+-- Item ESP Settings
+ESP.ShowItems = false
+ESP.ItemDistance = true
 
 local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
 local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
 
+-- Target configuration
 local targets = {
+    -- Creatures
     ["unicorn"] = Color3.fromRGB(255, 182, 193),
     ["outlaw"] = Color3.fromRGB(255, 0, 0),
     ["wolf"] = Color3.fromRGB(160, 160, 160),
     ["werewolf"] = Color3.fromRGB(100, 100, 100),
     ["vampire"] = Color3.fromRGB(128, 0, 128),
-    -- Zombie types with custom names
     ["model_walker"] = {color = Color3.fromRGB(0, 255, 0), name = "Zombie"},
-    ["model_runner"] = {color = Color3.fromRGB(255, 165, 0), name = "Runner Zombie"}
+    ["model_runner"] = {color = Color3.fromRGB(255, 165, 0), name = "Runner Zombie"},
+    
+    -- Items
+    ["fuel"] = {
+        ["chair"] = Color3.fromRGB(139, 69, 19),   -- Brown
+        ["book"] = Color3.fromRGB(210, 180, 140),  -- Tan
+        ["newspaper"] = Color3.fromRGB(255, 255, 0), -- Yellow
+        ["barrel"] = Color3.fromRGB(128, 128, 128), -- Gray
+        ["coal"] = Color3.fromRGB(0, 0, 0)          -- Black
+    },
+    ["health"] = {
+        ["snake oil"] = Color3.fromRGB(255, 0, 0),  -- Red
+        ["bandage"] = Color3.fromRGB(255, 255, 255) -- White
+    },
+    ["valuable"] = {
+        ["crucifix"] = Color3.fromRGB(255, 215, 0), -- Gold
+        ["gold"] = Color3.fromRGB(255, 215, 0),     -- Gold
+        ["silver"] = Color3.fromRGB(192, 192, 192), -- Silver
+        ["brain in jar"] = Color3.fromRGB(0, 255, 0), -- Green
+        ["bonds"] = Color3.fromRGB(0, 0, 255)       -- Blue
+    },
+    ["weapon"] = {
+        ["revolver"] = Color3.fromRGB(255, 0, 0),    -- Red
+        ["shotgun"] = Color3.fromRGB(255, 69, 0),    -- Orange-Red
+        ["rifle"] = Color3.fromRGB(255, 140, 0),     -- Dark Orange
+        ["tomahawk"] = Color3.fromRGB(139, 69, 19),  -- Brown
+        ["vampire knife"] = Color3.fromRGB(128, 0, 128) -- Purple
+    },
+    ["ammo"] = {
+        ["revolver ammo"] = Color3.fromRGB(255, 100, 100), -- Light Red
+        ["shotgun shells"] = Color3.fromRGB(255, 150, 50), -- Orange
+        ["rifle ammo"] = Color3.fromRGB(255, 200, 0)      -- Yellow-Orange
+    },
+    ["cave"] = {
+        ["jade sword"] = Color3.fromRGB(0, 128, 0),    -- Jade Green
+        ["strange mask"] = Color3.fromRGB(75, 0, 130)  -- Indigo
+    }
 }
 
 local addedModels = {}
+local addedItems = {}
 
 function AddTargetESP(model)
     if addedModels[model] then return end
     if model:IsA("Model") and model:FindFirstChildWhichIsA("Humanoid") then
         local nameLower = model.Name:lower()
         for keyword, data in pairs(targets) do
-            if nameLower:find(keyword) then
+            if nameLower:find(keyword) and type(data) ~= "table" then
                 local part = model:FindFirstChild("HumanoidRootPart") or model:FindFirstChildWhichIsA("BasePart")
                 if part then
                     local displayName = type(data) == "table" and data.name or keyword:sub(1,1):upper()..keyword:sub(2):gsub("_", " ")
@@ -52,14 +95,45 @@ function AddTargetESP(model)
     end
 end
 
+function AddItemESP(item)
+    if addedItems[item] then return end
+    if item:IsA("BasePart") or item:IsA("Model") then
+        local nameLower = item.Name:lower()
+        
+        -- Check all item categories
+        for category, items in pairs(targets) do
+            if type(items) == "table" then
+                for itemName, color in pairs(items) do
+                    if nameLower:find(itemName:lower()) then
+                        local part = item:IsA("Model") and (item:FindFirstChild("Handle") or item:FindFirstChildWhichIsA("BasePart")) or item
+                        if part then
+                            local espObj = ESP:Add(item, {
+                                Name = itemName:sub(1,1):upper()..itemName:sub(2),
+                                PrimaryPart = part,
+                                Color = color,
+                                IsEnabled = "ShowItems",
+                                Distance = ESP.ItemDistance
+                            })
+                            addedItems[item] = espObj
+                        end
+                        return
+                    end
+                end
+            end
+        end
+    end
+end
+
 -- Initial scan
 for _, obj in ipairs(workspace:GetDescendants()) do
     AddTargetESP(obj)
+    AddItemESP(obj)
 end
 
 workspace.DescendantAdded:Connect(function(obj)
     task.wait(0.1)
     AddTargetESP(obj)
+    AddItemESP(obj)
 end)
 
 -- UI
@@ -68,7 +142,7 @@ gui.Name = "ESP_UI"
 gui.ResetOnSpawn = false
 
 local mainContainer = Instance.new("Frame", gui)
-mainContainer.Size = UDim2.new(0, 240, 0, 150)
+mainContainer.Size = UDim2.new(0, 240, 0, 210) -- Increased height for item toggles
 mainContainer.Position = UDim2.new(0, 20, 0, 20)
 mainContainer.BackgroundTransparency = 1
 mainContainer.Active = true
@@ -99,7 +173,7 @@ toggleBtn.Font = Enum.Font.SourceSansBold
 toggleBtn.TextSize = 16
 
 local mainFrame = Instance.new("Frame", mainContainer)
-mainFrame.Size = UDim2.new(1, 0, 0, 120)
+mainFrame.Size = UDim2.new(1, 0, 0, 180) -- Increased height
 mainFrame.Position = UDim2.new(0, 0, 0, 30)
 mainFrame.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
 mainFrame.Active = true
@@ -108,20 +182,20 @@ mainFrame.Visible = false
 toggleBtn.MouseButton1Click:Connect(function()
     mainFrame.Visible = not mainFrame.Visible
     toggleBtn.Text = mainFrame.Visible and "Close" or "Open"
-    mainContainer.Size = UDim2.new(0, 240, 0, mainFrame.Visible and 150 or 30)
+    mainContainer.Size = UDim2.new(0, 240, 0, mainFrame.Visible and 210 or 30)
 end)
 
-local function createToggle(name, posY, callback)
+local function createToggle(name, posY, callback, defaultValue)
     local btn = Instance.new("TextButton", mainFrame)
-    btn.Size = UDim2.new(1, -20, 0, 40)
+    btn.Size = UDim2.new(1, -20, 0, 30) -- Smaller buttons
     btn.Position = UDim2.new(0, 10, 0, posY)
     btn.BackgroundColor3 = Color3.fromRGB(55, 55, 55)
     btn.TextColor3 = Color3.new(1,1,1)
     btn.Font = Enum.Font.SourceSansBold
-    btn.TextSize = 16
-    btn.Text = name .. ": OFF"
+    btn.TextSize = 14
+    btn.Text = name .. ": " .. (defaultValue and "ON" or "OFF")
 
-    local state = false
+    local state = defaultValue or false
     btn.MouseButton1Click:Connect(function()
         state = not state
         btn.Text = name .. ": " .. (state and "ON" or "OFF")
@@ -129,10 +203,36 @@ local function createToggle(name, posY, callback)
     end)
 end
 
-createToggle("Players", 10, function(val)
-    ESP.Players = val
-end)
+-- Creature ESP Toggles
+createToggle("Players", 10, function(val) ESP.Players = val end, false)
+createToggle("NPCs", 45, function(val) ESP.ShowNPCs = val end, false)
 
-createToggle("NPCs", 60, function(val)
-    ESP.ShowNPCs = val
-end)
+-- Item ESP Toggles
+createToggle("Fuel Items", 80, function(val) 
+    ESP.ShowItems = val 
+    for item, espObj in pairs(addedItems) do
+        if string.find(item.Name:lower(), "chair") or string.find(item.Name:lower(), "book") 
+        or string.find(item.Name:lower(), "newspaper") or string.find(item.Name:lower(), "barrel") 
+        or string.find(item.Name:lower(), "coal") then
+            espObj.Enabled = val
+        end
+    end
+end, false)
+
+createToggle("Health Items", 115, function(val)
+    for item, espObj in pairs(addedItems) do
+        if string.find(item.Name:lower(), "snake oil") or string.find(item.Name:lower(), "bandage") then
+            espObj.Enabled = val
+        end
+    end
+end, false)
+
+createToggle("Valuable Items", 150, function(val)
+    for item, espObj in pairs(addedItems) do
+        if string.find(item.Name:lower(), "crucifix") or string.find(item.Name:lower(), "gold") 
+        or string.find(item.Name:lower(), "silver") or string.find(item.Name:lower(), "brain in jar") 
+        or string.find(item.Name:lower(), "bonds") then
+            espObj.Enabled = val
+        end
+    end
+end, false)
