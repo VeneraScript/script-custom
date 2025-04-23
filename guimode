@@ -1,13 +1,7 @@
 local ESP = loadstring(game:HttpGet("https://raw.githubusercontent.com/VeneraScript/venera-esp/main/myEspScript.lua"))()
 ESP:Toggle(true)
 
--- ===== PERFORMANCE SETTINGS =====
-local updateInterval = 0.5  -- Update every 0.5 seconds
-local maxDistance = 500     -- Maximum render distance
-local useDistanceCulling = true
-local throttleUpdates = true
-
--- ===== BASIC ESP SETTINGS =====
+-- Basic ESP Settings
 ESP.Players = false
 ESP.Boxes = false
 ESP.Names = true
@@ -18,44 +12,34 @@ ESP.UseDisplayNames = false
 ESP.ShowNPCs = false
 ESP.ShowItems = false
 
--- ===== TARGET CONFIGURATION =====
+local MAX_ESP_DISTANCE = 500
+
 local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
 local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
 
 -- Item configuration
 local itemTargets = {
-    -- Fuel
     ["chair"] = Color3.fromRGB(139, 69, 19),
     ["book"] = Color3.fromRGB(210, 180, 140),
     ["newspaper"] = Color3.fromRGB(255, 255, 0),
     ["barrel"] = Color3.fromRGB(128, 128, 128),
     ["coal"] = Color3.fromRGB(0, 0, 0),
-    
-    -- Health
     ["snake oil"] = Color3.fromRGB(255, 0, 0),
     ["bandage"] = Color3.fromRGB(255, 255, 255),
-    
-    -- Valuables
     ["crucifix"] = Color3.fromRGB(255, 215, 0),
     ["gold"] = Color3.fromRGB(255, 215, 0),
     ["silver"] = Color3.fromRGB(192, 192, 192),
     ["brain in jar"] = Color3.fromRGB(0, 255, 0),
     ["bonds"] = Color3.fromRGB(0, 0, 255),
-    
-    -- Weapons
     ["revolver"] = Color3.fromRGB(255, 0, 0),
     ["shotgun"] = Color3.fromRGB(255, 69, 0),
     ["rifle"] = Color3.fromRGB(255, 140, 0),
     ["tomahawk"] = Color3.fromRGB(139, 69, 19),
     ["vampire knife"] = Color3.fromRGB(128, 0, 128),
-    
-    -- Ammo
     ["revolver ammo"] = Color3.fromRGB(255, 100, 100),
     ["shotgun shells"] = Color3.fromRGB(255, 150, 50),
     ["rifle ammo"] = Color3.fromRGB(255, 200, 0),
-    
-    -- Cave
     ["jade sword"] = Color3.fromRGB(0, 128, 0),
     ["strange mask"] = Color3.fromRGB(75, 0, 130)
 }
@@ -71,173 +55,85 @@ local creatureTargets = {
     ["model_runner"] = {color = Color3.fromRGB(255, 165, 0), name = "Runner Zombie"}
 }
 
--- ===== TRACKING SYSTEM =====
 local trackedItems = {}
 local trackedCreatures = {}
-local lastUpdate = 0
 
--- Optimized item validation
-local function IsValidItem(instance)
-    -- Skip if too far
-    if useDistanceCulling and LocalPlayer.Character and LocalPlayer.Character.PrimaryPart then
-        local rootPart = instance:IsA("Model") and (instance.PrimaryPart or instance:FindFirstChild("Handle")) or instance
-        if not rootPart then return false end
-        
-        local distance = (rootPart.Position - LocalPlayer.Character.PrimaryPart.Position).Magnitude
-        if distance > maxDistance then
-            return false
+function IsValidItem(instance)
+    if instance:IsA("Model") then
+        local handle = instance:FindFirstChild("Handle") or instance.PrimaryPart
+        if handle then return true, handle end
+    elseif instance:IsA("BasePart") then
+        if not (instance.Name:lower():find("wall") or instance.Name:lower():find("floor") or instance.Name:lower():find("building")) then
+            return true, instance
         end
     end
-    
-    -- Skip environment parts
-    if instance:IsA("BasePart") then
-        local nameLower = instance.Name:lower()
-        if nameLower:find("wall") or nameLower:find("floor") or nameLower:find("building") then
-            return false
-        end
-    end
-    
-    return true
+    return false
 end
 
--- Item ESP handler
-local function AddItemESP(item)
+function AddItemESP(item)
     if trackedItems[item] then return end
-    
-    if not IsValidItem(item) then return end
-    
+
+    local isValid, part = IsValidItem(item)
+    if not isValid then return end
+
+    local hrp = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+    if not hrp or (part.Position - hrp.Position).Magnitude > MAX_ESP_DISTANCE then return end
+
     local nameLower = item.Name:lower()
-    local primaryPart = item:IsA("Model") and (item.PrimaryPart or item:FindFirstChild("Handle")) or item
-    
-    if not primaryPart then return end
-    
     for itemName, color in pairs(itemTargets) do
         if nameLower:find(itemName:lower()) then
             local espObj = ESP:Add(item, {
                 Name = itemName:gsub("^%l", string.upper),
-                PrimaryPart = primaryPart,
+                PrimaryPart = part,
                 Color = color,
                 IsEnabled = "ShowItems"
             })
             trackedItems[item] = espObj
             espObj.Enabled = ESP.ShowItems
-            
-            -- Initial visibility check
-            if useDistanceCulling then
-                local distance = (primaryPart.Position - LocalPlayer.Character.PrimaryPart.Position).Magnitude
-                espObj.Visible = distance <= maxDistance
-            end
-            
             break
         end
     end
 end
 
--- Creature ESP handler
-local function AddCreatureESP(model)
+function AddCreatureESP(model)
     if trackedCreatures[model] then return end
-    if not model:IsA("Model") or not model:FindFirstChildWhichIsA("Humanoid") then return end
-    
-    local nameLower = model.Name:lower()
-    local primaryPart = model:FindFirstChild("HumanoidRootPart") or model:FindFirstChildWhichIsA("BasePart")
-    
-    if not primaryPart then return end
-    
-    for keyword, data in pairs(creatureTargets) do
-        if nameLower:find(keyword) then
-            local displayName = type(data) == "table" and data.name or keyword:gsub("^%l", string.upper)
-            local color = type(data) == "table" and data.color or data
-            
-            local espObj = ESP:Add(model, {
-                Name = displayName,
-                PrimaryPart = primaryPart,
-                Color = color,
-                IsEnabled = "ShowNPCs"
-            })
-            trackedCreatures[model] = espObj
-            
-            -- Initial visibility check
-            if useDistanceCulling and LocalPlayer.Character and LocalPlayer.Character.PrimaryPart then
-                local distance = (primaryPart.Position - LocalPlayer.Character.PrimaryPart.Position).Magnitude
-                espObj.Visible = distance <= maxDistance
+    if model:IsA("Model") and model:FindFirstChildWhichIsA("Humanoid") then
+        local hrp = model:FindFirstChild("HumanoidRootPart") or model:FindFirstChildWhichIsA("BasePart")
+        local myHrp = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+        if not hrp or not myHrp or (hrp.Position - myHrp.Position).Magnitude > MAX_ESP_DISTANCE then return end
+
+        local nameLower = model.Name:lower()
+        for keyword, data in pairs(creatureTargets) do
+            if nameLower:find(keyword) then
+                local displayName = type(data) == "table" and data.name or keyword:gsub("^%l", string.upper)
+                local color = type(data) == "table" and data.color or data
+                
+                local espObj = ESP:Add(model, {
+                    Name = displayName,
+                    PrimaryPart = hrp,
+                    Color = color,
+                    IsEnabled = "ShowNPCs"
+                })
+                trackedCreatures[model] = espObj
+                break
             end
-            
-            break
         end
     end
 end
 
--- ===== SCANNING SYSTEM =====
-local function ScanWorkspace()
-    for _, obj in ipairs(workspace:GetDescendants()) do
-        AddCreatureESP(obj)
-        AddItemESP(obj)
-    end
+-- Initial scan
+for _, obj in ipairs(workspace:GetDescendants()) do
+    AddCreatureESP(obj)
+    AddItemESP(obj)
 end
 
-local descendantAddedConn = workspace.DescendantAdded:Connect(function(obj)
-    task.wait(0.2) -- Short delay for initialization
+workspace.DescendantAdded:Connect(function(obj)
+    task.wait(0.5)
     AddCreatureESP(obj)
     AddItemESP(obj)
 end)
 
--- ===== PERFORMANCE OPTIMIZED UPDATE LOOP =====
-local RunService = game:GetService("RunService")
-local Camera = workspace.CurrentCamera
-
-local function UpdateESP()
-    if throttleUpdates and (tick() - lastUpdate < updateInterval) then return end
-    lastUpdate = tick()
-    
-    local character = LocalPlayer.Character
-    local playerRoot = character and character:FindFirstChild("HumanoidRootPart")
-    
-    -- Update items
-    for item, espObj in pairs(trackedItems) do
-        if espObj.Enabled and item.Parent then
-            local part = item:IsA("Model") and (item.PrimaryPart or item:FindFirstChild("Handle")) or item
-            
-            if part then
-                -- Distance culling
-                if useDistanceCulling and playerRoot then
-                    local distance = (part.Position - playerRoot.Position).Magnitude
-                    espObj.Visible = distance <= maxDistance
-                end
-                
-                -- Viewport culling (skip if behind camera)
-                local _, onScreen = Camera:WorldToViewportPoint(part.Position)
-                espObj.Visible = espObj.Visible and onScreen
-            end
-        else
-            espObj:Remove()
-            trackedItems[item] = nil
-        end
-    end
-    
-    -- Update creatures (same logic as items)
-    for model, espObj in pairs(trackedCreatures) do
-        if espObj.Enabled and model.Parent then
-            local part = model:FindFirstChild("HumanoidRootPart") or model:FindFirstChildWhichIsA("BasePart")
-            
-            if part then
-                if useDistanceCulling and playerRoot then
-                    local distance = (part.Position - playerRoot.Position).Magnitude
-                    espObj.Visible = distance <= maxDistance
-                end
-                
-                local _, onScreen = Camera:WorldToViewportPoint(part.Position)
-                espObj.Visible = espObj.Visible and onScreen
-            end
-        else
-            espObj:Remove()
-            trackedCreatures[model] = nil
-        end
-    end
-end
-
-RunService.Heartbeat:Connect(UpdateESP)
-
--- ===== UI SYSTEM =====
+-- GUI (original lu, ga gue ubah)
 local gui = Instance.new("ScreenGui", PlayerGui)
 gui.Name = "ESP_UI"
 gui.ResetOnSpawn = false
@@ -309,7 +205,6 @@ createToggle("NPCs", 45, "ShowNPCs", function(val)
         espObj.Enabled = val
     end
 end)
-
 createToggle("Items", 80, "ShowItems", function(val)
     for item, espObj in pairs(trackedItems) do
         espObj.Enabled = val
@@ -320,23 +215,5 @@ createToggle("Items", 80, "ShowItems", function(val)
                 AddItemESP(obj)
             end
         end)
-    end
-end)
-
--- ===== INITIALIZATION =====
-ScanWorkspace()
-
--- ===== CLEANUP HANDLER =====
-local function Cleanup()
-    descendantAddedConn:Disconnect()
-    for _, espObj in pairs(trackedItems) do espObj:Remove() end
-    for _, espObj in pairs(trackedCreatures) do espObj:Remove() end
-    gui:Destroy()
-end
-
--- Auto cleanup if game loses focus
-game:GetService("UserInputService").WindowFocused:Connect(function(focused)
-    if not focused then
-        Cleanup()
     end
 end)
