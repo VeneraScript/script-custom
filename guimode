@@ -19,7 +19,11 @@ local targets = {
     ["outlaw"] = Color3.fromRGB(255, 0, 0),
     ["wolf"] = Color3.fromRGB(160, 160, 160),
     ["werewolf"] = Color3.fromRGB(100, 100, 100),
-    ["vampire"] = Color3.fromRGB(128, 0, 128)
+    ["vampire"] = Color3.fromRGB(128, 0, 128),
+    -- Zombie types with different colors
+    ["model_walker"] = Color3.fromRGB(0, 255, 0),  -- Green for Walkers
+    ["model_runner"] = Color3.fromRGB(255, 165, 0), -- Orange for Runners
+    ["zombie"] = Color3.fromRGB(0, 255, 255)       -- Cyan for generic zombies
 }
 
 local addedModels = {}
@@ -32,8 +36,9 @@ function AddTargetESP(model)
             if nameLower:find(keyword) then
                 local part = model:FindFirstChild("HumanoidRootPart") or model:FindFirstChildWhichIsA("BasePart")
                 if part then
+                    local displayName = keyword:sub(1,1):upper() .. keyword:sub(2):gsub("_", " ")
                     local espObj = ESP:Add(model, {
-                        Name = keyword:sub(1,1):upper() .. keyword:sub(2),
+                        Name = displayName,
                         PrimaryPart = part,
                         Color = color,
                         IsEnabled = "ShowNPCs"
@@ -46,30 +51,73 @@ function AddTargetESP(model)
     end
 end
 
--- Initial scan
-for _, obj in ipairs(workspace:GetDescendants()) do
-    AddTargetESP(obj)
+-- Enhanced scanning with zombie detection
+function ScanForTargets()
+    for _, obj in ipairs(workspace:GetDescendants()) do
+        -- Check for standard targets
+        AddTargetESP(obj)
+        
+        -- Special handling for zombie models
+        if obj:IsA("Model") and obj:FindFirstChildWhichIsA("Humanoid") then
+            local nameLower = obj.Name:lower()
+            local zombieType = nil
+            
+            if nameLower:find("walker") then
+                zombieType = "model_walker"
+            elseif nameLower:find("runner") then
+                zombieType = "model_runner"
+            elseif nameLower:find("zombie") then
+                zombieType = "zombie"
+            end
+            
+            if zombieType then
+                local part = obj:FindFirstChild("HumanoidRootPart") or obj:FindFirstChildWhichIsA("BasePart")
+                if part and targets[zombieType] then
+                    local displayName = zombieType:sub(1,1):upper() .. zombieType:sub(2):gsub("_", " ")
+                    if not addedModels[obj] then
+                        local espObj = ESP:Add(obj, {
+                            Name = displayName,
+                            PrimaryPart = part,
+                            Color = targets[zombieType],
+                            IsEnabled = "ShowNPCs"
+                        })
+                        addedModels[obj] = espObj
+                    end
+                end
+            end
+        end
+    end
 end
+
+-- Initial scan
+ScanForTargets()
 
 workspace.DescendantAdded:Connect(function(obj)
     task.wait(0.1)
     AddTargetESP(obj)
+    
+    -- Additional check for new zombies
+    if obj:IsA("Model") and obj:FindFirstChildWhichIsA("Humanoid") then
+        local nameLower = obj.Name:lower()
+        if nameLower:find("walker") or nameLower:find("runner") or nameLower:find("zombie") then
+            task.wait(0.5) -- Give time for full initialization
+            ScanForTargets()
+        end
+    end
 end)
 
--- UI
+-- UI (same as before with the dragging fix)
 local gui = Instance.new("ScreenGui", PlayerGui)
 gui.Name = "ESP_UI"
 gui.ResetOnSpawn = false
 
--- Main container that will be dragged
 local mainContainer = Instance.new("Frame", gui)
-mainContainer.Size = UDim2.new(0, 240, 0, 150) -- Increased height to fit all elements
+mainContainer.Size = UDim2.new(0, 240, 0, 150)
 mainContainer.Position = UDim2.new(0, 20, 0, 20)
 mainContainer.BackgroundTransparency = 1
 mainContainer.Active = true
 mainContainer.Draggable = true
 
--- Title bar (now just for visuals, dragging is handled by mainContainer)
 local titleBar = Instance.new("Frame", mainContainer)
 titleBar.Size = UDim2.new(1, 0, 0, 30)
 titleBar.Position = UDim2.new(0, 0, 0, 0)
@@ -96,7 +144,7 @@ toggleBtn.TextSize = 16
 
 local mainFrame = Instance.new("Frame", mainContainer)
 mainFrame.Size = UDim2.new(1, 0, 0, 120)
-mainFrame.Position = UDim2.new(0, 0, 0, 30) -- Positioned below title bar
+mainFrame.Position = UDim2.new(0, 0, 0, 30)
 mainFrame.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
 mainFrame.Active = true
 mainFrame.Visible = false
@@ -104,7 +152,6 @@ mainFrame.Visible = false
 toggleBtn.MouseButton1Click:Connect(function()
     mainFrame.Visible = not mainFrame.Visible
     toggleBtn.Text = mainFrame.Visible and "Close" or "Open"
-    -- Adjust container height based on visibility
     mainContainer.Size = UDim2.new(0, 240, 0, mainFrame.Visible and 150 or 30)
 end)
 
