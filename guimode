@@ -217,11 +217,3 @@ createToggle("Items", 80, "ShowItems", function(val)
         end)
     end
 end)
-
-return function()
-    for _, v in pairs(game:GetDescendants()) do
-        if v:IsA("BillboardGui") and v.Name == "ESP" then
-            v:Destroy()
-        end
-    end
-end
